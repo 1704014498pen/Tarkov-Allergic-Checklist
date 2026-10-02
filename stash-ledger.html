@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보급품 대장</title>
+<style>
+:root{
+  --bg:#121309;
+  --panel:#1b1d13;
+  --panel-2:#23261a;
+  --border:#3a3d2a;
+  --border-soft:#2a2c1f;
+  --text:#eae6d6;
+  --text-dim:#9a9c84;
+  --text-faint:#6c6e5a;
+  --food:#a9c25e;
+  --food-dim:#5f6e3b;
+  --med:#d1573f;
+  --med-dim:#7a3b30;
+  --amber:#d99a3a;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:14px;
+  line-height:1.5;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+  background-size:28px 28px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.page{
+  position:relative;
+  z-index:1;
+  max-width:1080px;
+  margin:0 auto;
+  padding:18px 16px 48px;
+}
+
+/* ---------- header ---------- */
+.topbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  justify-content:space-between;
+  align-items:flex-end;
+  padding-bottom:16px;
+  border-bottom:2px solid var(--border);
+  margin-bottom:16px;
+}
+.eyebrow{
+  margin:0 0 2px;
+  font-size:11px;
+  letter-spacing:.22em;
+  color:var(--text-faint);
+  text-transform:uppercase;
+}
+h1{
+  margin:0;
+  font-family:'Bebas Neue',Impact,'Oswald',sans-serif;
+  font-weight:400;
+  font-size:clamp(32px,7vw,46px);
+  letter-spacing:.03em;
+  color:var(--text);
+  text-wrap:balance;
+}
+.stats{
+  min-width:180px;
+  text-align:right;
+}
+.progress-num{
+  font-family:'Bebas Neue',Impact,sans-serif;
+  font-size:30px;
+  letter-spacing:.02em;
+  color:var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+.progress-num .slash{color:var(--text-faint); margin:0 3px;}
+.progress-num #totalCount{color:var(--text-dim); font-size:20px;}
+.progress-label{
+  font-size:10px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--text-faint);
+  margin-top:-2px;
+}
+.progress-bar{
+  margin-top:8px;
+  height:6px;
+  border-radius:3px;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,var(--food-dim),var(--amber));
+  transition:width .25s ease;
+}
+
+/* ---------- controls ---------- */
+.controls{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+}
+#search{
+  flex:1;
+  min-width:0;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text);
+  font-family:inherit;
+  font-size:13px;
+  padding:10px 12px;
+  border-radius:4px;
+  outline:none;
+}
+#search::placeholder{color:var(--text-faint);}
+#search:focus{border-color:var(--amber);}
+.reset-btn{
+  flex-shrink:0;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  font-family:inherit;
+  font-size:12px;
+  letter-spacing:.05em;
+  padding:0 14px;
+  border-radius:4px;
+  cursor:pointer;
+}
+.reset-btn:hover{border-color:var(--med); color:var(--med);}
+.reset-btn.armed{
+  background:var(--med-dim);
+  border-color:var(--med);
+  color:var(--text);
+}
+
+/* ---------- chips ---------- */
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:22px;
+}
+.chip{
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  font-family:inherit;
+  font-size:11.5px;
+  letter-spacing:.03em;
+  padding:6px 11px;
+  border-radius:999px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.chip .n{color:var(--text-faint); margin-left:3px;}
+.chip:hover{border-color:var(--text-dim); color:var(--text);}
+.chip.active{
+  background:var(--amber);
+  border-color:var(--amber);
+  color:#1a1503;
+  font-weight:600;
+}
+.chip.active .n{color:#1a1503; opacity:.65;}
+
+/* ---------- groups ---------- */
+.group-title{
+  font-family:'Bebas Neue',Impact,sans-serif;
+  font-size:22px;
+  letter-spacing:.05em;
+  margin:26px 0 4px;
+  padding-bottom:8px;
+  border-bottom:2px solid var(--group-accent,var(--border));
+  color:var(--text);
+}
+.group-title.food{--group-accent:var(--food-dim);}
+.group-title.med{--group-accent:var(--med-dim);}
+
+.subsection{margin-top:14px;}
+.subsection h3{
+  font-size:12px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--text-dim);
+  margin:0 0 8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.subsection h3 .count{color:var(--text-faint); font-weight:400; letter-spacing:0; text-transform:none;}
+.subsection[hidden]{display:none;}
+.group-title[hidden]{display:none;}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(146px,1fr));
+  gap:8px;
+}
+
+/* ---------- item cell ---------- */
+.cell{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+  text-align:left;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-left:3px solid var(--cell-accent,var(--border));
+  border-radius:4px;
+  padding:10px 30px 10px 11px;
+  cursor:pointer;
+  font-family:inherit;
+  color:inherit;
+}
+.cell:hover{background:var(--panel-2);}
+.cell:focus-visible{outline:2px solid var(--amber); outline-offset:1px;}
+.cell[hidden]{display:none;}
+
+.cell .icon{
+  color:var(--cell-accent,var(--text-dim));
+  opacity:.9;
+}
+.cell .name{
+  font-size:13px;
+  font-weight:600;
+  color:var(--text);
+  line-height:1.3;
+}
+.cell .stat{
+  font-size:11px;
+  color:var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  line-height:1.3;
+}
+
+.check-indicator{
+  position:absolute;
+  top:9px;
+  right:9px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border:1.5px solid var(--border);
+  background:transparent;
+}
+.check-indicator::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d0f07' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='4 12 10 18 20 6'/></svg>");
+  background-size:11px 11px;
+  background-repeat:no-repeat;
+  background-position:center;
+  opacity:0;
+}
+
+.cell.checked{
+  background:var(--panel);
+  filter:grayscale(1);
+  opacity:.42;
+}
+.cell.checked .name{text-decoration:line-through; text-decoration-color:var(--text-faint);}
+.cell.checked .check-indicator{background:var(--amber); border-color:var(--amber);}
+.cell.checked .check-indicator::after{opacity:1;}
+
+.empty-msg{
+  color:var(--text-faint);
+  font-size:12.5px;
+  padding:20px 4px;
+  display:none;
+}
+.empty-msg.show{display:block;}
+
+footer{
+  margin-top:36px;
+  padding-top:14px;
+  border-top:1px solid var(--border-soft);
+  color:var(--text-faint);
+  font-size:11px;
+  line-height:1.7;
+}
+
+@media (max-width:480px){
+  .topbar{align-items:flex-start;}
+  .stats{text-align:left;}
+}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="page">
+  <header class="topbar">
+    <div class="titlewrap">
+      <p class="eyebrow">Escape from Tarkov · 비공식 팬 제작</p>
+      <h1>보급품 대장</h1>
+    </div>
+    <div class="stats">
+      <div class="progress-num"><span id="checkedCount">0</span><span class="slash">/</span><span id="totalCount">0</span></div>
+      <div class="progress-label">확보 완료</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input id="search" type="search" placeholder="아이템 이름 검색 (예: grizzly, water…)" autocomplete="off" />
+    <button id="resetBtn" class="reset-btn" type="button">초기화</button>
+  </div>
+
+  <nav class="chips" id="chips"></nav>
+
+  <main id="sections"></main>
+
+  <footer>
+    체크 상태는 이 브라우저에만 저장되며(로컬 저장소), 다른 기기·다른 사람과 공유되지 않습니다.<br>
+    항목 이름과 수치는 게임 위키/커뮤니티 자료 기준으로 정리한 것으로, 패치에 따라 실제 게임 내용과 다를 수 있습니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // 데이터
+  // ---------------------------------------------------------------
+  var CAT = {
+    drink:    { label:"음료",             group:"food", icon:"drink" },
+    food_item:{ label:"음식",             group:"food", icon:"can" },
+    medkit:   { label:"의료키트",          group:"med",  icon:"cross" },
+    surgical: { label:"수술키트",          group:"med",  icon:"scalpel" },
+    bandage:  { label:"붕대·부목·지혈대",  group:"med",  icon:"bandage" },
+    pain:     { label:"진통제",           group:"med",  icon:"pill" },
+    stim:     { label:"자극제",           group:"med",  icon:"syringe" }
+  };
+  var GROUP_LABEL = { food:"음식 · 음료", med:"의료템" };
+
+  // [이름, 카테고리, 스탯설명]
+  var RAW = [
+    // 음료
+    ["Aquamari","drink","에너지 +20 · 수분 +100"],
+    ["Superwater","drink","에너지 +25 · 수분 +100"],
+    ["YMXC","drink","에너지 +30 · 수분 +100"],
+    ["Kvass","drink","에너지 +15 · 수분 +65"],
+    ["Water","drink","수분 +60"],
+    ["EWR","drink","에너지 +5 · 수분 +50"],
+    ["Pevko","drink","에너지 +10 · 수분 +40"],
+    ["Pineapple juice","drink","에너지 +8 · 수분 +30"],
+    ["Grand","drink","에너지 +6 · 수분 +30"],
+    ["Milk","drink","에너지 +20 · 수분 +30"],
+    ["Vita","drink","에너지 +8 · 수분 +28"],
+    ["Apple juice","drink","에너지 +5 · 수분 +25"],
+    ["MaxEnergy","drink","에너지 +12 · 수분 +20"],
+    ["Hot Rod","drink","에너지 +10 · 수분 +20"],
+    ["RatCola","drink","에너지 +20 · 수분 +20"],
+    ["Iced green tea","drink","수분 +15"],
+    ["TarCola","drink","에너지 +5 · 수분 +15"],
+    ["Peas","drink","에너지 +35 · 수분 +5"],
+    ["Pâté","drink","에너지 +50 · 수분 +5"],
+    // 음식
+    ["Mayo","food_item","에너지 +100 · 수분 -99"],
+    ["Salad","food_item","에너지 +100 · 수분 -10"],
+    ["GigaBeef","food_item","에너지 +100 · 수분 -50"],
+    ["Iskra","food_item","에너지 +80"],
+    ["Condensed milk","food_item","에너지 +75 · 수분 -65"],
+    ["MRE","food_item","에너지 +70"],
+    ["Sugar","food_item","에너지 +70 · 수분 -45"],
+    ["Sprats","food_item","에너지 +55 · 수분 -5"],
+    ["Tarker","food_item","에너지 +55 · 수분 -5"],
+    ["Humpback","food_item","에너지 +50 · 수분 -5"],
+    ["Tushonka (대용량)","food_item","에너지 +50 · 수분 -5"],
+    ["Sausage","food_item","에너지 +50 · 수분 -5"],
+    ["Saury","food_item","에너지 +48 · 수분 -2"],
+    ["Herring","food_item","에너지 +47 · 수분 -3"],
+    ["Tushonka (소용량)","food_item","에너지 +45 · 수분 -5"],
+    ["Squash","food_item","에너지 +40"],
+    ["Oat flakes","food_item","에너지 +40 · 수분 -13"],
+    ["Cocaoo","food_item","에너지 +40 · 수분 -18"],
+    ["Alyonka","food_item","에너지 +35 · 수분 -15"],
+    ["Slickers","food_item","에너지 +30 · 수분 -15"],
+    ["Instant noodles","food_item","에너지 +25 · 수분 -10"],
+    ["Croutons","food_item","에너지 +20 · 수분 -10"],
+    ["Moonshine","food_item","에너지 +20 · 수분 -10"],
+    ["Crackers","food_item","에너지 +10 · 수분 -5"],
+    ["Emelya","food_item","에너지 +10 · 수분 -10"],
+    ["Whiskey","food_item","에너지 +10 · 수분 -35"],
+    ["Vodka","food_item","수분 -50"],
+    // 의료키트
+    ["Grizzly Medical Kit","medkit","최대 1800 HP 회복 · 출혈·골절·타박상 동시 치료"],
+    ["Salewa First Aid Kit","medkit","최대 400 HP 회복 · 출혈 치료"],
+    ["AFAK Tactical IFAK","medkit","최대 400 HP 회복 · 출혈 치료, 사용 속도 빠름"],
+    ["IFAK Individual First Aid Kit","medkit","최대 300 HP 회복 · 출혈 치료"],
+    ["Car First Aid Kit","medkit","최대 220 HP 회복 · 경상 출혈 치료"],
+    ["AI-2 Medkit","medkit","최대 100 HP 회복 · 기초 응급처치용"],
+    // 수술키트
+    ["CMS Surgical Kit","surgical","사지 일부 복구(25~45%) · 절단 치료"],
+    ["Surv12 Field Surgical Kit","surgical","사지 복구율 높음(60~72%) · 골절·절단 동시 치료"],
+    // 붕대/부목/지혈대
+    ["Alu splint","bandage","팔·다리 골절 치료"],
+    ["Army Bandage","bandage","경상 출혈 치료"],
+    ["AI Aseptic Bandage","bandage","경상 출혈 치료 · 소독 효과"],
+    ["CALOK-B Hemostatic Applicator","bandage","심한 출혈 즉시 지혈"],
+    ["CAT Tourniquet","bandage","심한 출혈 지혈(사지 혈류 차단)"],
+    ["Esmarch Tourniquet","bandage","심한 출혈 지혈"],
+    ["Splint","bandage","팔·다리 골절 치료(기본형)"],
+    ["Tigzresq Immobilization Splint","bandage","팔·다리 골절 치료(고급형)"],
+    // 진통제
+    ["Golden Star Balm","pain","통증 완화 + 타박상 회복 · 약 350초"],
+    ["Morphine Injector","pain","통증 완화 + 타박상 회복 · 약 300초"],
+    ["Vaseline Balm","pain","통증 완화 · 약 300초"],
+    ["Ibuprofen Painkillers","pain","통증 완화 + 타박상 회복 · 약 280초"],
+    ["Augmentin Antibiotic Pills","pain","통증 완화(항생 효과 겸함) · 약 150초"],
+    ["Analgin Painkillers","pain","통증 완화(저가형) · 약 80초"],
+    // 자극제
+    ["2A2-(b-TG)","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["3-(b-TG)","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Adrenaline","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["AHF1-M","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["eTG-change","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["L1","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["M.U.L.E.","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Meldonin","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Dolbos 2","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Obdolbos","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["P22","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Perfotoran","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["PNB","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Propital","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["SJ1 TGLabs combat stimulant","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["SJ12 TGLabs combat stimulant","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["SJ6 TGLabs combat stimulant","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["SJ9 TGLabs combat stimulant","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Trimadol","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["xTG-12","stim","전투 스탯 일시 강화(효과는 종류별 상이)"],
+    ["Zagustin","stim","전투 스탯 일시 강화(효과는 종류별 상이)"]
+  ];
+
+  function slugify(s){
+    return s.toLowerCase().replace(/[^a-z0-9가-힣]+/g,"-").replace(/(^-|-$)/g,"");
+  }
+
+  var ITEMS = RAW.map(function(row, i){
+    return { id: "it-" + i + "-" + slugify(row[0]), name: row[0], cat: row[1], stat: row[2] };
+  });
+
+  // ---------------------------------------------------------------
+  // 아이콘 (인라인 SVG, 카테고리별)
+  // ---------------------------------------------------------------
+  var ICONS = {
+    drink:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8l-1 6a3 3 0 0 1-2 2.8V20h3v2H8v-2h3v-9.2A3 3 0 0 1 9 8L8 2z"/></svg>',
+    can:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="14" rx="1.5"/><path d="M5 11h14M8 7V4h8v3"/></svg>',
+    cross:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>',
+    scalpel:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 15 9"/><path d="M15 9l3-3 2 2-3 3z"/><circle cx="6" cy="18" r="1.6"/></svg>',
+    bandage:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="19" height="8" rx="4"/><path d="M9 8v8M15 8v8"/></svg>',
+    pill:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="6" rx="3" transform="rotate(-30 12 12)"/><path d="M12 12 7 7" transform="rotate(-30 12 12)"/></svg>',
+    syringe:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3l-3 3M4 20l4.5-4.5M9.5 9.5 14.5 14.5"/><path d="M17 3 21 7"/><path d="M6.5 17.5 15 9l-1-1-2 2-1-1 2-2-1-1-8.5 8.5z"/></svg>'
+  };
+
+  // ---------------------------------------------------------------
+  // 저장소 (per-viewer 로컬 저장, 사용자 편의용)
+  // ---------------------------------------------------------------
+  var STORE_KEY = "tarkov-stash-ledger-v1";
+  var checked = {};
+  try{
+    var raw = localStorage.getItem(STORE_KEY);
+    if(raw) checked = JSON.parse(raw) || {};
+  }catch(e){ checked = {}; }
+
+  function saveChecked(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(checked)); }catch(e){}
+  }
+
+  // ---------------------------------------------------------------
+  // 렌더
+  // ---------------------------------------------------------------
+  var sectionsEl = document.getElementById("sections");
+  var chipsEl = document.getElementById("chips");
+
+  var byCat = {};
+  Object.keys(CAT).forEach(function(k){ byCat[k] = []; });
+  ITEMS.forEach(function(it){ byCat[it.cat].push(it); });
+
+  var groupsOrder = ["food","med"];
+  var catsByGroup = { food: ["drink","food_item"], med: ["medkit","surgical","bandage","pain","stim"] };
+
+  function cellHtml(it){
+    var accentVar = CAT[it.cat].group === "food" ? "var(--food)" : "var(--med)";
+    return (
+      '<button type="button" class="cell" data-id="'+it.id+'" data-cat="'+it.cat+'" style="--cell-accent:'+accentVar+'">' +
+        '<span class="check-indicator"></span>' +
+        '<span class="icon">'+ICONS[CAT[it.cat].icon]+'</span>' +
+        '<span class="name">'+it.name+'</span>' +
+        '<span class="stat">'+it.stat+'</span>' +
+      '</button>'
+    );
+  }
+
+  var html = "";
+  groupsOrder.forEach(function(g){
+    html += '<h2 class="group-title '+g+'" data-group="'+g+'">'+GROUP_LABEL[g]+'</h2>';
+    catsByGroup[g].forEach(function(catKey){
+      var items = byCat[catKey];
+      html += '<section class="subsection" data-cat="'+catKey+'">';
+      html += '<h3>'+CAT[catKey].label+' <span class="count">('+items.length+')</span></h3>';
+      html += '<div class="grid">' + items.map(cellHtml).join("") + '</div>';
+      html += '</section>';
+    });
+  });
+  html += '<p class="empty-msg" id="emptyMsg">검색 결과가 없습니다.</p>';
+  sectionsEl.innerHTML = html;
+
+  // 칩 렌더
+  var chipHtml = '<button type="button" class="chip active" data-filter="all">전체 <span class="n">'+ITEMS.length+'</span></button>';
+  Object.keys(CAT).forEach(function(k){
+    chipHtml += '<button type="button" class="chip" data-filter="'+k+'">'+CAT[k].label+' <span class="n">'+byCat[k].length+'</span></button>';
+  });
+  chipsEl.innerHTML = chipHtml;
+
+  // ---------------------------------------------------------------
+  // 상태 적용 + 진행률
+  // ---------------------------------------------------------------
+  var totalCountEl = document.getElementById("totalCount");
+  var checkedCountEl = document.getElementById("checkedCount");
+  var progressFillEl = document.getElementById("progressFill");
+  totalCountEl.textContent = ITEMS.length;
+
+  function applyCheckedState(){
+    document.querySelectorAll(".cell").forEach(function(cell){
+      var id = cell.getAttribute("data-id");
+      cell.classList.toggle("checked", !!checked[id]);
+    });
+    updateProgress();
+  }
+
+  function updateProgress(){
+    var n = Object.keys(checked).filter(function(k){ return checked[k]; }).length;
+    checkedCountEl.textContent = n;
+    var pct = ITEMS.length ? Math.round((n / ITEMS.length) * 100) : 0;
+    progressFillEl.style.width = pct + "%";
+  }
+
+  applyCheckedState();
+
+  // ---------------------------------------------------------------
+  // 클릭 → 확보 표시(회색 처리) 토글
+  // ---------------------------------------------------------------
+  sectionsEl.addEventListener("click", function(e){
+    var cell = e.target.closest(".cell");
+    if(!cell) return;
+    var id = cell.getAttribute("data-id");
+    checked[id] = !checked[id];
+    cell.classList.toggle("checked", checked[id]);
+    saveChecked();
+    updateProgress();
+  });
+
+  // ---------------------------------------------------------------
+  // 검색 + 카테고리 필터
+  // ---------------------------------------------------------------
+  var activeFilter = "all";
+  var searchInput = document.getElementById("search");
+  var emptyMsg = document.getElementById("emptyMsg");
+
+  function applyFilters(){
+    var q = searchInput.value.trim().toLowerCase();
+    var anyVisible = false;
+
+    document.querySelectorAll(".subsection").forEach(function(sec){
+      var cat = sec.getAttribute("data-cat");
+      var catMatches = activeFilter === "all" || activeFilter === cat;
+      var visibleInSection = 0;
+
+      sec.querySelectorAll(".cell").forEach(function(cell){
+        var name = cell.querySelector(".name").textContent.toLowerCase();
+        var qMatches = !q || name.indexOf(q) !== -1;
+        var show = catMatches && qMatches;
+        cell.hidden = !show;
+        if(show) visibleInSection++;
+      });
+
+      sec.hidden = visibleInSection === 0;
+      if(visibleInSection > 0) anyVisible = true;
+    });
+
+    // 그룹 타이틀: 그룹 내 서브섹션이 전부 숨겨지면 같이 숨김
+    groupsOrder.forEach(function(g){
+      var groupHasVisible = catsByGroup[g].some(function(catKey){
+        var sec = document.querySelector('.subsection[data-cat="'+catKey+'"]');
+        return sec && !sec.hidden;
+      });
+      var titleEl = document.querySelector('.group-title[data-group="'+g+'"]');
+      if(titleEl) titleEl.hidden = !groupHasVisible;
+    });
+
+    emptyMsg.classList.toggle("show", !anyVisible);
+  }
+
+  searchInput.addEventListener("input", applyFilters);
+
+  chipsEl.addEventListener("click", function(e){
+    var chip = e.target.closest(".chip");
+    if(!chip) return;
+    activeFilter = chip.getAttribute("data-filter");
+    chipsEl.querySelectorAll(".chip").forEach(function(c){ c.classList.toggle("active", c === chip); });
+    applyFilters();
+  });
+
+  // ---------------------------------------------------------------
+  // 초기화 (2단계 확인 — confirm() 다이얼로그는 이 뷰어에서 동작하지 않음)
+  // ---------------------------------------------------------------
+  var resetBtn = document.getElementById("resetBtn");
+  var armed = false, armTimer = null;
+
+  resetBtn.addEventListener("click", function(){
+    if(!armed){
+      armed = true;
+      resetBtn.textContent = "다시 눌러 초기화";
+      resetBtn.classList.add("armed");
+      armTimer = setTimeout(function(){
+        armed = false;
+        resetBtn.textContent = "초기화";
+        resetBtn.classList.remove("armed");
+      }, 3000);
+      return;
+    }
+    clearTimeout(armTimer);
+    armed = false;
+    resetBtn.textContent = "초기화";
+    resetBtn.classList.remove("armed");
+    checked = {};
+    saveChecked();
+    applyCheckedState();
+  });
+
+  // ---------------------------------------------------------------
+  // hot reload snapshot (published-page 갱신 시 상태 보존용)
+  // ---------------------------------------------------------------
+  try{
+    if(window.claude && window.claude.hot){
+      window.claude.hot.snapshot(function(){ return { checked: checked, filter: activeFilter }; });
+      var boot = function(data){
+        if(data){
+          if(data.checked) checked = data.checked;
+          if(data.filter){ activeFilter = data.filter; }
+          applyCheckedState();
+          applyFilters();
+        }
+      };
+      if(window.claude.hot.ready) window.claude.hot.ready(boot);
+      else boot(window.claude.hot.data);
+    }
+  }catch(e){}
+
+})();
+</script>
+</body>
+</html>
