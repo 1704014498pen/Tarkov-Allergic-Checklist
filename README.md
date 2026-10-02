@@ -1,4 +1,4 @@
-# Tarkov Allergic Checklist — 보급품 대장
+# Tarkov Allergic Checklist
 
 Escape from Tarkov의 음식·음료·의료 아이템을 한눈에 보고 확보 여부를 체크하는 단일 HTML 체크리스트입니다. 비공식 팬 제작물입니다.
 
