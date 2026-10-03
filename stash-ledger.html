@@ -301,6 +301,33 @@ h1{
 .cell.allergy .icon{color:var(--med);}
 .cell.allergy .name{color:#f0826a;}
 
+/* 알러지 한도 초과 시 거부 피드백 */
+.cell.denied{animation:deny-shake .32s ease;}
+@keyframes deny-shake{
+  0%,100%{transform:translateX(0);}
+  25%{transform:translateX(-4px);}
+  75%{transform:translateX(4px);}
+}
+.allergy-count{
+  margin-top:6px;
+  font-size:11px;
+  letter-spacing:.06em;
+  color:var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.allergy-count.full{color:#f0826a;}
+.allergy-msg{
+  min-height:16px;
+  font-size:11px;
+  color:#f0826a;
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.allergy-msg.show{opacity:1;}
+@media (prefers-reduced-motion:reduce){
+  .cell.denied{animation:none;}
+}
+
 .empty-msg{
   color:var(--text-faint);
   font-size:12.5px;
@@ -340,6 +367,8 @@ footer{
       <div class="progress-num"><span id="checkedCount">0</span><span class="slash">/</span><span id="totalCount">0</span></div>
       <div class="progress-label">안전 체크</div>
       <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="allergy-count" id="allergyCountWrap">알러지 <span id="allergyCount">0</span>/<span id="allergyMax">3</span></div>
+      <div class="allergy-msg" id="allergyMsg" role="status" aria-live="polite"></div>
     </div>
   </header>
 
@@ -353,7 +382,7 @@ footer{
   <main id="sections"></main>
 
   <footer>
-    좌클릭 = 안전 체크 · 우클릭 = 알러지 표시(빨간색). 체크된 아이템은 알러지 표시가, 알러지 아이템은 체크가 되지 않습니다(먼저 해제 필요).<br>
+    좌클릭 = 안전 체크 · 우클릭 = 알러지 표시(빨간색, 최대 3개). 체크된 아이템은 알러지 표시가, 알러지 아이템은 체크가 되지 않습니다(먼저 해제 필요).<br>
     알러지 표시는 초기화 버튼의 영향을 받지 않습니다.<br>
     체크 상태는 이 브라우저에만 저장되며(로컬 저장소), 다른 기기·다른 사람과 공유되지 않습니다.<br>
     항목 이름과 수치는 게임 위키/커뮤니티 자료 기준으로 정리한 것으로, 패치에 따라 실제 게임 내용과 다를 수 있습니다.
@@ -548,8 +577,16 @@ footer{
   checked = migrateIds(checked);
   allergy = migrateIds(allergy);
 
-  // 체크·알러지가 겹쳐 저장돼 있으면 알러지를 우선한다 (둘은 동시 표시 불가)
+  var ALLERGY_MAX = 3;
+
+  // 알러지는 최대 ALLERGY_MAX개 — 목록에 없는 id는 버리고, 초과분은 아이템 순서상 앞쪽만 남긴다.
+  // 그다음 체크·알러지가 겹치면 알러지를 우선한다 (둘은 동시 표시 불가)
   function dedupStates(){
+    var capped = {};
+    ITEMS.forEach(function(it){
+      if(allergy[it.id] && Object.keys(capped).length < ALLERGY_MAX) capped[it.id] = true;
+    });
+    allergy = capped;
     Object.keys(allergy).forEach(function(id){ if(checked[id]) delete checked[id]; });
   }
   dedupStates();
@@ -613,6 +650,36 @@ footer{
   var progressFillEl = document.getElementById("progressFill");
   totalCountEl.textContent = ITEMS.length;
 
+  var allergyCountEl = document.getElementById("allergyCount");
+  var allergyCountWrap = document.getElementById("allergyCountWrap");
+  var allergyMsgEl = document.getElementById("allergyMsg");
+  document.getElementById("allergyMax").textContent = ALLERGY_MAX;
+
+  function allergyCount(){
+    return Object.keys(allergy).filter(function(k){ return allergy[k]; }).length;
+  }
+
+  function updateAllergyCount(){
+    var n = allergyCount();
+    allergyCountEl.textContent = n;
+    allergyCountWrap.classList.toggle("full", n >= ALLERGY_MAX);
+  }
+
+  var allergyMsgTimer = null;
+  function denyAllergy(cell){
+    cell.classList.remove("denied");
+    void cell.offsetWidth; // 연속 거부 시 애니메이션 재시작
+    cell.classList.add("denied");
+    allergyMsgEl.textContent = "알러지는 최대 " + ALLERGY_MAX + "개까지 표시할 수 있습니다";
+    allergyMsgEl.classList.add("show");
+    clearTimeout(allergyMsgTimer);
+    allergyMsgTimer = setTimeout(function(){ allergyMsgEl.classList.remove("show"); }, 2200);
+  }
+
+  sectionsEl.addEventListener("animationend", function(e){
+    if(e.target.classList) e.target.classList.remove("denied");
+  });
+
   function applyCheckedState(){
     document.querySelectorAll(".cell").forEach(function(cell){
       var id = cell.getAttribute("data-id");
@@ -620,6 +687,7 @@ footer{
       cell.classList.toggle("allergy", !!allergy[id]);
     });
     updateProgress();
+    updateAllergyCount();
   }
 
   function updateProgress(){
@@ -654,10 +722,15 @@ footer{
     var id = cell.getAttribute("data-id");
     if(checked[id]) return; // 이미 안전 체크된 아이템은 알러지 표시 불가
     e.preventDefault();
-    if(allergy[id]) delete allergy[id];
-    else allergy[id] = true;
+    if(allergy[id]){
+      delete allergy[id];
+    } else {
+      if(allergyCount() >= ALLERGY_MAX){ denyAllergy(cell); return; }
+      allergy[id] = true;
+    }
     cell.classList.toggle("allergy", !!allergy[id]);
     saveAllergy();
+    updateAllergyCount();
   });
 
   // ---------------------------------------------------------------
